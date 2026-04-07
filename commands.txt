@@ -29,6 +29,11 @@
 # The "Non-PK" Requirement: Your project requires you to select rows using an attribute that is not part of the original primary key (like salary).
 # Cassandra's Restriction: In Cassandra, you normally cannot filter by a column unless it's in the primary key. The Materialized View solves this by creating a hidden, internal table where salary becomes the new primary key.
 
+# to enable materialized views
+- docker exec -it mis-cassandra cqlsh -e "ALTER KEYSPACE mis_keyspace WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};"
+- docker exec -it mis-cassandra sed -i 's/materialized_views_enabled: false/materialized_views_enabled: true/' /etc/cassandra/cassandra.yaml
+- then docker restart mis-cassandra
+
 - docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.employees WHERE department = 'IT' ORDER BY hire_date DESC;"
 - docker exec -it mis-cassandra cqlsh -e "CREATE MATERIALIZED VIEW mis_keyspace.emp_by_salary AS SELECT * FROM mis_keyspace.employees WHERE salary IS NOT NULL AND department IS NOT NULL AND hire_date IS NOT NULL AND employee_id IS NOT NULL PRIMARY KEY (salary, department, hire_date, employee_id);"
 - docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.emp_by_salary WHERE salary > 7000;"
