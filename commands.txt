@@ -1,0 +1,85 @@
+1- enter mongodb shell 
+- docker exec -it mis-mongodb mongosh
+- use mis_project
+- db.students.aggregate([
+  {
+    $lookup: {
+      from: "courses",
+      localField: "enrolledCourseIds",
+      foreignField: "_id",
+      as: "courses"
+    }
+  }
+])
+
+- db.instructors.aggregate([
+  {
+    $lookup: {
+      from: "courses",
+      localField: "_id",
+      foreignField: "instructorId",
+      as: "courses"
+    }
+  }
+])
+
+2- enter cassandra shell 
+- docker exec -it mis-cassandra cqlsh
+
+# The "Non-PK" Requirement: Your project requires you to select rows using an attribute that is not part of the original primary key (like salary).
+# Cassandra's Restriction: In Cassandra, you normally cannot filter by a column unless it's in the primary key. The Materialized View solves this by creating a hidden, internal table where salary becomes the new primary key.
+
+- docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.employees WHERE department = 'IT' ORDER BY hire_date DESC;"
+- docker exec -it mis-cassandra cqlsh -e "CREATE MATERIALIZED VIEW mis_keyspace.emp_by_salary AS SELECT * FROM mis_keyspace.employees WHERE salary IS NOT NULL AND department IS NOT NULL AND hire_date IS NOT NULL AND employee_id IS NOT NULL PRIMARY KEY (salary, department, hire_date, employee_id);"
+- docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.emp_by_salary WHERE salary > 7000;"
+
+3- enter neo4j shell 
+- docker exec -it mis-neo4j cypher-shell -u neo4j -p password123
+
+* enter neo4j browser
+- http://localhost:7474
+
+// Task 1: Create graph (nodes, relationships, properties)
+MATCH (n) DETACH DELETE n;
+CREATE (alice:Person {id: 1, name: 'Alice', age: 30, city: 'New York'})
+CREATE (bob:Person {id: 2, name: 'Bob', age: 25, city: 'Los Angeles'})
+CREATE (charlie:Person {id: 3, name: 'Charlie', age: 35, city: 'New York'})
+CREATE (diana:Person {id: 4, name: 'Diana', age: 28, city: 'Chicago'})
+CREATE (eve:Person {id: 5, name: 'Eve', age: 22, city: 'Los Angeles'})
+CREATE (frank:Person {id: 6, name: 'Frank', age: 40, city: 'New York'})
+CREATE (alice)-[:FRIENDS_WITH {since: 2018, closeness: 'close'}]->(bob)
+CREATE (alice)-[:FRIENDS_WITH {since: 2015, closeness: 'best'}]->(charlie)
+CREATE (bob)-[:FRIENDS_WITH {since: 2020, closeness: 'acquaintance'}]->(diana)
+CREATE (charlie)-[:FRIENDS_WITH {since: 2019, closeness: 'close'}]->(eve)
+CREATE (diana)-[:FRIENDS_WITH {since: 2021, closeness: 'close'}]->(eve)
+CREATE (frank)-[:FRIENDS_WITH {since: 2016, closeness: 'close'}]->(alice)
+CREATE (alice)-[:WORKS_WITH {company: 'TechCorp', role: 'colleague'}]->(charlie)
+CREATE (bob)-[:WORKS_WITH {company: 'DataInc', role: 'manager'}]->(diana);
+
+// Task 2a: Delete a property from a node
+MATCH (p:Person {name: 'Frank'}) REMOVE p.city;
+
+// Task 2b: Delete a specific relationship
+MATCH (bob:Person {name: 'Bob'})-[r:WORKS_WITH]->(diana:Person {name: 'Diana'}) DELETE r;
+
+// Task 2c: Delete a node (DETACH also removes its relationships)
+MATCH (p:Person {name: 'Frank'}) DETACH DELETE p;
+
+// Task 3a: Update node properties
+MATCH (p:Person {name: 'Alice'}) SET p.age = 31, p.email = 'alice@example.com';
+MATCH (p:Person {name: 'Bob'}) SET p.city = 'San Francisco';
+
+// Task 3b: Update a relationship property
+MATCH (a:Person {name: 'Alice'})-[r:FRIENDS_WITH]->(b:Person {name: 'Bob'}) SET r.closeness = 'best';
+
+// Task 4a: Find nodes - people in New York
+MATCH (p:Person) WHERE p.city = 'New York' RETURN p.name, p.age;
+
+// Task 4b: Find nodes - people older than 27
+MATCH (p:Person) WHERE p.age > 27 RETURN p.name, p.age ORDER BY p.age DESC;
+
+// Task 5a: Find relationships - friendships formed before 2020
+MATCH (a:Person)-[r:FRIENDS_WITH]->(b:Person) WHERE r.since < 2020 RETURN a.name, b.name, r.since, r.closeness;
+
+// Task 5b: Find relationships - only 'best' or 'close' friendships
+MATCH (a:Person)-[r:FRIENDS_WITH]->(b:Person) WHERE r.closeness IN ['best', 'close'] RETURN a.name, b.name, r.closeness;
