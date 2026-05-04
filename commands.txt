@@ -36,7 +36,16 @@
 
 - docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.employees WHERE department = 'IT' ORDER BY hire_date DESC;"
 - docker exec -it mis-cassandra cqlsh -e "CREATE MATERIALIZED VIEW mis_keyspace.emp_by_salary AS SELECT * FROM mis_keyspace.employees WHERE salary IS NOT NULL AND department IS NOT NULL AND hire_date IS NOT NULL AND employee_id IS NOT NULL PRIMARY KEY (salary, department, hire_date, employee_id);"
-- docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.emp_by_salary WHERE salary > 7000;"
+
+# SAFE QUERIES ON MATERIALIZED VIEW:
+# Cassandra does NOT allow range queries on partition keys (e.g., salary > 7000).
+# You can only query equality on the partition key.
+
+- docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.emp_by_salary WHERE salary = 9000;"
+
+# Alternative (NOT RECOMMENDED for production): if you must do range queries, use ALLOW FILTERING:
+# docker exec -it mis-cassandra cqlsh -e "SELECT * FROM mis_keyspace.emp_by_salary WHERE salary > 7000 ALLOW FILTERING;"
+# WARNING: ALLOW FILTERING scans all partitions and is very slow on large datasets. Avoid in production.
 
 3- enter neo4j shell 
 - docker exec -it mis-neo4j cypher-shell -u neo4j -p password123
